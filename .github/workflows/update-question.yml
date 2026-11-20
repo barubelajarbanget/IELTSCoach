@@ -13,9 +13,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Find working models
+        env:
+          KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          for m in $(curl -s -H "x-goog-api-key: $KEY" "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200" | grep -o '"name": "models/[^"]*"' | sed 's/.*models\///;s/"//' | grep gemini | head -25); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/$m:generateContent" -H "x-goog-api-key: $KEY" -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"Say OK"}]}]}')
+            echo "$m -> $code"
+          done
       - run: node scripts/generate.mjs
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
       - name: Commit changes
         run: |
           git config user.name "question-bot"
